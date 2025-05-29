@@ -5,8 +5,10 @@ import Link from 'next/link';
 import PostCard from '@/components/PostCard/PostCard';
 import { Row, Col, Spinner, Button } from 'reactstrap';
 import CustomAlert from '@/components/CustomAlert/CustomAlert';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
+  const { user, isAuthenticated, isAuthor, loading: authLoading } = useAuth();
   const [posts, setPosts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,84 +45,111 @@ export default function Home() {
     }
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
-      <div className="text-center py-5">
-        <Spinner size="sm" />
-      </div>
+        <div className="text-center py-5">
+          <Spinner size="sm" />
+        </div>
     );
   }
 
   if (error) {
     return (
-      <CustomAlert color="danger">{error}</CustomAlert>
+        <CustomAlert color="danger">{error}</CustomAlert>
     );
   }
 
   return (
-    <>
-      {/* Hero sekcija */}
-      <div className="bg-light rounded-3 p-5 mb-5">
-        <h1 className="display-4 fw-bold">Dobrodošli na Blog Platform</h1>
-        <p className="lead">
-          Mesto gde možete deliti svoje priče, ideje i znanje sa svetom.
-          Pridružite se našoj zajednici pisaca i čitalaca.
-        </p>
-        <div className="d-flex gap-3">
-          <Button color="primary" size="lg" tag={Link} href="/posts">
-            Pregledaj postove
-          </Button>
-          <Button color="outline-primary" size="lg" tag={Link} href="/auth/signup">
-            Postani autor
-          </Button>
-        </div>
-      </div>
+      <>
+        {/* Hero sekcija */}
+        <div className="bg-light rounded-3 p-5 mb-5">
+          <h1 className="display-4 fw-bold">Dobrodošli na Blog Platform</h1>
+          <p className="lead">
+            Mesto gde možete deliti svoje priče, ideje i znanje sa svetom.
+            Pridružite se našoj zajednici pisaca i čitalaca.
+          </p>
+          <div className="d-flex gap-3">
+            <Button color="primary" size="lg" tag={Link} href="/posts">
+              Pregledaj postove
+            </Button>
 
-      {/* Kategorije */}
-      <section className="mb-5">
-        <h2 className="mb-4">Popularne kategorije</h2>
-        <Row>
-          {categories.slice(0, 6).map(category => (
-            <Col key={category.id} md={4} lg={2} className="mb-3">
-              <Link
-                href={`/category/${category.id}`}
-                className="text-decoration-none"
-              >
-                <div className="text-center p-3 bg-light rounded h-100">
-                  <h5 className="mb-0">{category.name}</h5>
-                  <small className="text-muted">
-                    {category.postCount || 0} {category.postCount === 1 ? 'post' : 'postova'}
-                  </small>
-                </div>
-              </Link>
-            </Col>
-          ))}
-        </Row>
-      </section>
+            {/* Prikaži "Postani autor" dugme samo ako korisnik nije ulogovan */}
+            {!isAuthenticated() && (
+                <Button color="outline-primary" size="lg" tag={Link} href="/auth/signup">
+                  Postani autor
+                </Button>
+            )}
 
-      {/* Najnoviji postovi */}
-      <section>
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h2 className="mb-0">Najnoviji postovi</h2>
-          <Link href="/posts" className="btn btn-outline-primary">
-            Vidi sve
-          </Link>
+            {/* Ako je korisnik ulogovan i već je autor, prikaži "Kreiraj post" */}
+            {isAuthenticated() && isAuthor() && (
+                <Button color="success" size="lg" tag={Link} href="/posts/create">
+                  Kreiraj novi post
+                </Button>
+            )}
+
+            {/* Ako je korisnik ulogovan ali nije autor, prikaži poruku */}
+            {isAuthenticated() && !isAuthor() && (
+                <Button color="outline-secondary" size="lg" disabled>
+                  Potrebne su vam author privilegije
+                </Button>
+            )}
+          </div>
         </div>
 
-        {posts.length > 0 ? (
+        {/* Kategorije */}
+        <section className="mb-5">
+          <h2 className="mb-4">Popularne kategorije</h2>
           <Row>
-            {posts.map(post => (
-              <Col key={post.id} md={6} lg={4} className="mb-4">
-                <PostCard post={post} />
-              </Col>
+            {categories.slice(0, 6).map(category => (
+                <Col key={category.id} md={4} lg={2} className="mb-3">
+                  <Link
+                      href={`/category/${category.id}`}
+                      className="text-decoration-none"
+                  >
+                    <div className="text-center p-3 bg-light rounded h-100">
+                      <h5 className="mb-0">{category.name}</h5>
+                      <small className="text-muted">
+                        {category.postCount || 0} {category.postCount === 1 ? 'post' : 'postova'}
+                      </small>
+                    </div>
+                  </Link>
+                </Col>
             ))}
           </Row>
-        ) : (
-          <CustomAlert color="info">
-            Još uvek nema objavljenih postova. Budite prvi koji će podeliti svoju priču!
-          </CustomAlert>
-        )}
-      </section>
-    </>
+        </section>
+
+        {/* Najnoviji postovi */}
+        <section>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h2 className="mb-0">Najnoviji postovi</h2>
+            <Link href="/posts" className="btn btn-outline-primary">
+              Vidi sve
+            </Link>
+          </div>
+
+          {posts.length > 0 ? (
+              <Row>
+                {posts.map(post => (
+                    <Col key={post.id} md={6} lg={4} className="mb-4">
+                      <PostCard post={post} />
+                    </Col>
+                ))}
+              </Row>
+          ) : (
+              <CustomAlert color="info">
+                {isAuthenticated() && isAuthor() ? (
+                    <>
+                      Još uvek nema objavljenih postova. {' '}
+                      <Link href="/posts/create" className="alert-link">
+                        Budite prvi koji će podeliti svoju priču!
+                      </Link>
+                    </>
+                ) : (
+                    'Još uvek nema objavljenih postova. Budite prvi koji će podeliti svoju priču!'
+                )}
+              </CustomAlert>
+          )}
+        </section>
+      </>
   );
 }
