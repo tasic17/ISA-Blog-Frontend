@@ -3,66 +3,67 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
-import {
-    Card,
-    CardBody,
-    CardTitle,
-    Form,
-    FormGroup,
-    Label,
-    Input,
-    Button,
-    Spinner,
-    Row,
-    Col
-} from 'reactstrap';
-import CustomAlert from '@/components/CustomAlert/CustomAlert';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignUp() {
     const router = useRouter();
+    const { updateUserState } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
 
-    const {
-        register,
-        handleSubmit,
-        watch,
-        formState: { errors }
-    } = useForm();
+    // Simple form state
+    const [formData, setFormData] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        contactNumber: '',
+        password: '',
+        confirmPassword: ''
+    });
 
-    const password = watch('password');
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
 
-    console.log('Component rendered, form errors:', errors);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
 
-    const onSubmit = async (data) => {
-        console.log('=== FORM SUBMIT DEBUG ===');
-        console.log('1. onSubmit function called');
-        console.log('2. Form data received:', data);
-        console.log('3. Data keys:', Object.keys(data));
-        console.log('4. Data values:', Object.values(data));
+        console.log('Form submitted with data:', formData);
 
-        // Provjeri da li su sva potrebna polja tu
-        if (!data.firstName) console.error('Missing firstName');
-        if (!data.lastName) console.error('Missing lastName');
-        if (!data.email) console.error('Missing email');
-        if (!data.password) console.error('Missing password');
+        // Basic validation
+        if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+            setError('Molimo popunite sva obavezna polja');
+            return;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+            setError('Lozinke se ne poklapaju');
+            return;
+        }
+
+        if (formData.password.length < 6) {
+            setError('Lozinka mora imati najmanje 6 karaktera');
+            return;
+        }
 
         setLoading(true);
         setError(null);
 
         try {
             const userData = {
-                firstName: data.firstName,
-                lastName: data.lastName,
-                email: data.email,
-                contactNumber: data.contactNumber || '',
-                password: data.password
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                email: formData.email,
+                contactNumber: formData.contactNumber || '',
+                password: formData.password
             };
 
-            console.log('5. Prepared userData:', userData);
-            console.log('6. Sending request to backend...');
+            console.log('Sending to backend:', userData);
 
             const response = await fetch('http://localhost:8080/auth/signup', {
                 method: 'POST',
@@ -73,14 +74,16 @@ export default function SignUp() {
                 body: JSON.stringify(userData)
             });
 
-            console.log('7. Response status:', response.status);
+            console.log('Response status:', response.status);
 
-            const result = await response.json().catch((err) => {
-                console.error('Failed to parse JSON:', err);
-                return null;
-            });
+            let result = null;
+            try {
+                result = await response.json();
+            } catch (parseError) {
+                console.error('Failed to parse JSON:', parseError);
+            }
 
-            console.log('8. Response data:', result);
+            console.log('Response data:', result);
 
             if (!response.ok) {
                 throw new Error(result?.detail || `HTTP Error: ${response.status}`);
@@ -92,196 +95,162 @@ export default function SignUp() {
                 localStorage.setItem('refreshToken', result.refreshToken);
                 localStorage.setItem('user', JSON.stringify(result.user));
 
+                // VAŽNO: Ažurirati AuthContext
+                updateUserState();
+
                 setSuccess(true);
-                console.log('9. Registration successful, redirecting...');
+                console.log('Registration successful, redirecting...');
 
                 // Redirect after a short delay
                 setTimeout(() => {
                     router.push('/');
-                }, 1000);
+                }, 2000);
             }
         } catch (err) {
-            console.error('10. Registration error:', err);
-            console.error('11. Error message:', err.message);
-            setError(err.message || 'An error occurred during registration. Please try again.');
+            console.error('Registration error:', err);
+            setError(err.message || 'Greška prilikom registracije. Pokušajte ponovo.');
         } finally {
             setLoading(false);
-            console.log('12. Loading set to false');
         }
     };
 
     return (
         <div className="row justify-content-center">
             <div className="col-md-8 col-lg-6">
-                <Card>
-                    <CardBody>
-                        <CardTitle tag="h2" className="text-center mb-4">
-                            Registruj se
-                        </CardTitle>
+                <div className="card">
+                    <div className="card-body">
+                        <h2 className="text-center mb-4">Registruj se</h2>
 
-                        {error && <CustomAlert color="danger">{error}</CustomAlert>}
-                        {success && <CustomAlert color="success">Uspešna registracija! Preusmeravanje...</CustomAlert>}
+                        {error && (
+                            <div className="alert alert-danger" role="alert">
+                                {error}
+                            </div>
+                        )}
 
-                        <Form onSubmit={(e) => {
-                            console.log('Form onSubmit event triggered');
-                            e.preventDefault();
-                            handleSubmit(onSubmit)(e);
-                        }}>
-                            <Row>
-                                <Col md={6}>
-                                    <FormGroup>
-                                        <Label for="firstName">Ime</Label>
-                                        <Input
+                        {success && (
+                            <div className="alert alert-success" role="alert">
+                                Uspešna registracija! Preusmeravanje...
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit}>
+                            <div className="row">
+                                <div className="col-md-6">
+                                    <div className="mb-3">
+                                        <label htmlFor="firstName" className="form-label">
+                                            Ime <span className="text-danger">*</span>
+                                        </label>
+                                        <input
                                             type="text"
+                                            className="form-control"
                                             id="firstName"
                                             name="firstName"
-                                            {...register('firstName', {
-                                                required: 'Ime je obavezno',
-                                                maxLength: {
-                                                    value: 50,
-                                                    message: 'Ime ne sme biti duže od 50 karaktera'
-                                                }
-                                            })}
-                                            invalid={!!errors.firstName}
-                                            onChange={(e) => {
-                                                console.log('firstName changed:', e.target.value);
-                                            }}
+                                            value={formData.firstName}
+                                            onChange={handleChange}
+                                            required
                                         />
-                                        {errors.firstName && (
-                                            <div className="invalid-feedback d-block">
-                                                {errors.firstName.message}
-                                            </div>
-                                        )}
-                                    </FormGroup>
-                                </Col>
+                                    </div>
+                                </div>
 
-                                <Col md={6}>
-                                    <FormGroup>
-                                        <Label for="lastName">Prezime</Label>
-                                        <Input
+                                <div className="col-md-6">
+                                    <div className="mb-3">
+                                        <label htmlFor="lastName" className="form-label">
+                                            Prezime <span className="text-danger">*</span>
+                                        </label>
+                                        <input
                                             type="text"
+                                            className="form-control"
                                             id="lastName"
                                             name="lastName"
-                                            {...register('lastName', {
-                                                required: 'Prezime je obavezno',
-                                                maxLength: {
-                                                    value: 50,
-                                                    message: 'Prezime ne sme biti duže od 50 karaktera'
-                                                }
-                                            })}
-                                            invalid={!!errors.lastName}
+                                            value={formData.lastName}
+                                            onChange={handleChange}
+                                            required
                                         />
-                                        {errors.lastName && (
-                                            <div className="invalid-feedback d-block">
-                                                {errors.lastName.message}
-                                            </div>
-                                        )}
-                                    </FormGroup>
-                                </Col>
-                            </Row>
+                                    </div>
+                                </div>
+                            </div>
 
-                            <FormGroup>
-                                <Label for="email">Email</Label>
-                                <Input
+                            <div className="mb-3">
+                                <label htmlFor="email" className="form-label">
+                                    Email <span className="text-danger">*</span>
+                                </label>
+                                <input
                                     type="email"
+                                    className="form-control"
                                     id="email"
                                     name="email"
-                                    {...register('email', {
-                                        required: 'Email je obavezan',
-                                        pattern: {
-                                            value: /^\S+@\S+$/i,
-                                            message: 'Neispravan format email adrese'
-                                        }
-                                    })}
-                                    invalid={!!errors.email}
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    required
                                 />
-                                {errors.email && (
-                                    <div className="invalid-feedback d-block">
-                                        {errors.email.message}
-                                    </div>
-                                )}
-                            </FormGroup>
+                            </div>
 
-                            <FormGroup>
-                                <Label for="contactNumber">Broj telefona</Label>
-                                <Input
+                            <div className="mb-3">
+                                <label htmlFor="contactNumber" className="form-label">
+                                    Broj telefona
+                                </label>
+                                <input
                                     type="text"
+                                    className="form-control"
                                     id="contactNumber"
                                     name="contactNumber"
-                                    {...register('contactNumber', {
-                                        maxLength: {
-                                            value: 20,
-                                            message: 'Broj telefona ne sme biti duži od 20 karaktera'
-                                        }
-                                    })}
-                                    invalid={!!errors.contactNumber}
+                                    value={formData.contactNumber}
+                                    onChange={handleChange}
                                 />
-                                {errors.contactNumber && (
-                                    <div className="invalid-feedback d-block">
-                                        {errors.contactNumber.message}
-                                    </div>
-                                )}
-                            </FormGroup>
+                            </div>
 
-                            <Row>
-                                <Col md={6}>
-                                    <FormGroup>
-                                        <Label for="password">Lozinka</Label>
-                                        <Input
+                            <div className="row">
+                                <div className="col-md-6">
+                                    <div className="mb-3">
+                                        <label htmlFor="password" className="form-label">
+                                            Lozinka <span className="text-danger">*</span>
+                                        </label>
+                                        <input
                                             type="password"
+                                            className="form-control"
                                             id="password"
                                             name="password"
-                                            {...register('password', {
-                                                required: 'Lozinka je obavezna',
-                                                minLength: {
-                                                    value: 6,
-                                                    message: 'Lozinka mora imati najmanje 6 karaktera'
-                                                }
-                                            })}
-                                            invalid={!!errors.password}
+                                            value={formData.password}
+                                            onChange={handleChange}
+                                            required
+                                            minLength="6"
                                         />
-                                        {errors.password && (
-                                            <div className="invalid-feedback d-block">
-                                                {errors.password.message}
-                                            </div>
-                                        )}
-                                    </FormGroup>
-                                </Col>
+                                    </div>
+                                </div>
 
-                                <Col md={6}>
-                                    <FormGroup>
-                                        <Label for="confirmPassword">Potvrdi lozinku</Label>
-                                        <Input
+                                <div className="col-md-6">
+                                    <div className="mb-3">
+                                        <label htmlFor="confirmPassword" className="form-label">
+                                            Potvrdi lozinku <span className="text-danger">*</span>
+                                        </label>
+                                        <input
                                             type="password"
+                                            className="form-control"
                                             id="confirmPassword"
                                             name="confirmPassword"
-                                            {...register('confirmPassword', {
-                                                required: 'Potvrda lozinke je obavezna',
-                                                validate: value =>
-                                                    value === password || 'Lozinke se ne poklapaju'
-                                            })}
-                                            invalid={!!errors.confirmPassword}
+                                            value={formData.confirmPassword}
+                                            onChange={handleChange}
+                                            required
                                         />
-                                        {errors.confirmPassword && (
-                                            <div className="invalid-feedback d-block">
-                                                {errors.confirmPassword.message}
-                                            </div>
-                                        )}
-                                    </FormGroup>
-                                </Col>
-                            </Row>
+                                    </div>
+                                </div>
+                            </div>
 
-                            <Button
-                                color="primary"
-                                block
-                                disabled={loading}
-                                className="mt-4"
+                            <button
                                 type="submit"
-                                onClick={() => console.log('Button clicked, loading:', loading)}
+                                className="btn btn-primary w-100 mt-3"
+                                disabled={loading}
                             >
-                                {loading ? <Spinner size="sm" /> : 'Registruj se'}
-                            </Button>
-                        </Form>
+                                {loading ? (
+                                    <>
+                                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        Registracija...
+                                    </>
+                                ) : (
+                                    'Registruj se'
+                                )}
+                            </button>
+                        </form>
 
                         <hr className="my-4" />
 
@@ -291,8 +260,8 @@ export default function SignUp() {
                                 Prijavite se
                             </Link>
                         </p>
-                    </CardBody>
-                </Card>
+                    </div>
+                </div>
             </div>
         </div>
     );

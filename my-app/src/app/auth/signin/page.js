@@ -3,38 +3,43 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
-import {
-    Card,
-    CardBody,
-    CardTitle,
-    Form,
-    FormGroup,
-    Label,
-    Input,
-    Button,
-    Spinner
-} from 'reactstrap';
-import CustomAlert from '@/components/CustomAlert/CustomAlert';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignIn() {
     const router = useRouter();
+    const { updateUserState } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors }
-    } = useForm();
+    const [formData, setFormData] = useState({
+        email: '',
+        password: ''
+    });
 
-    const onSubmit = async (data) => {
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        console.log('Login form submitted with data:', formData);
+
+        if (!formData.email || !formData.password) {
+            setError('Molimo unesite email i lozinku');
+            return;
+        }
+
         setLoading(true);
         setError(null);
 
         try {
-            console.log('Sending login data:', data);
+            console.log('Sending login request...');
 
             const response = await fetch('http://localhost:8080/auth/signin', {
                 method: 'POST',
@@ -43,18 +48,24 @@ export default function SignIn() {
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify({
-                    email: data.email,
-                    password: data.password
+                    email: formData.email,
+                    password: formData.password
                 })
             });
 
-            console.log('Login response status:', response.status);
+            console.log('Response status:', response.status);
 
-            const result = await response.json().catch(() => null);
-            console.log('Login response data:', result);
+            let result = null;
+            try {
+                result = await response.json();
+            } catch (parseError) {
+                console.error('Failed to parse JSON:', parseError);
+            }
+
+            console.log('Response data:', result);
 
             if (!response.ok) {
-                throw new Error(result?.detail || `Error: ${response.status}`);
+                throw new Error(result?.detail || `HTTP Error: ${response.status}`);
             }
 
             // Store user data in localStorage
@@ -63,16 +74,20 @@ export default function SignIn() {
                 localStorage.setItem('refreshToken', result.refreshToken);
                 localStorage.setItem('user', JSON.stringify(result.user));
 
+                // VAŽNO: Ažurirati AuthContext
+                updateUserState();
+
                 setSuccess(true);
+                console.log('Login successful, redirecting...');
 
                 // Redirect after a short delay
                 setTimeout(() => {
                     router.push('/');
-                }, 1000);
+                }, 1500);
             }
         } catch (err) {
             console.error('Login error:', err);
-            setError(err.message || 'An error occurred during login. Please try again.');
+            setError(err.message || 'Greška prilikom prijave. Pokušajte ponovo.');
         } finally {
             setLoading(false);
         }
@@ -81,66 +96,68 @@ export default function SignIn() {
     return (
         <div className="row justify-content-center">
             <div className="col-md-6 col-lg-5">
-                <Card>
-                    <CardBody>
-                        <CardTitle tag="h2" className="text-center mb-4">
-                            Prijavi se
-                        </CardTitle>
+                <div className="card">
+                    <div className="card-body">
+                        <h2 className="text-center mb-4">Prijavi se</h2>
 
-                        {error && <CustomAlert color="danger">{error}</CustomAlert>}
-                        {success && <CustomAlert color="success">Uspešna prijava! Preusmeravanje...</CustomAlert>}
+                        {error && (
+                            <div className="alert alert-danger" role="alert">
+                                {error}
+                            </div>
+                        )}
 
-                        <Form onSubmit={handleSubmit(onSubmit)}>
-                            <FormGroup>
-                                <Label for="email">Email</Label>
-                                <Input
+                        {success && (
+                            <div className="alert alert-success" role="alert">
+                                Uspešna prijava! Preusmeravanje...
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit}>
+                            <div className="mb-3">
+                                <label htmlFor="email" className="form-label">
+                                    Email <span className="text-danger">*</span>
+                                </label>
+                                <input
                                     type="email"
+                                    className="form-control"
                                     id="email"
                                     name="email"
-                                    {...register('email', {
-                                        required: 'Email je obavezan',
-                                        pattern: {
-                                            value: /^\S+@\S+$/i,
-                                            message: 'Neispravan format email adrese'
-                                        }
-                                    })}
-                                    invalid={!!errors.email}
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    required
                                 />
-                                {errors.email && (
-                                    <div className="invalid-feedback d-block">
-                                        {errors.email.message}
-                                    </div>
-                                )}
-                            </FormGroup>
+                            </div>
 
-                            <FormGroup>
-                                <Label for="password">Lozinka</Label>
-                                <Input
+                            <div className="mb-3">
+                                <label htmlFor="password" className="form-label">
+                                    Lozinka <span className="text-danger">*</span>
+                                </label>
+                                <input
                                     type="password"
+                                    className="form-control"
                                     id="password"
                                     name="password"
-                                    {...register('password', {
-                                        required: 'Lozinka je obavezna'
-                                    })}
-                                    invalid={!!errors.password}
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    required
                                 />
-                                {errors.password && (
-                                    <div className="invalid-feedback d-block">
-                                        {errors.password.message}
-                                    </div>
-                                )}
-                            </FormGroup>
+                            </div>
 
-                            <Button
-                                color="primary"
-                                block
-                                disabled={loading}
-                                className="mt-4"
+                            <button
                                 type="submit"
+                                className="btn btn-primary w-100 mt-3"
+                                disabled={loading}
                             >
-                                {loading ? <Spinner size="sm" /> : 'Prijavi se'}
-                            </Button>
-                        </Form>
+                                {loading ? (
+                                    <>
+                                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        Prijava...
+                                    </>
+                                ) : (
+                                    'Prijavi se'
+                                )}
+                            </button>
+                        </form>
 
                         <hr className="my-4" />
 
@@ -150,8 +167,8 @@ export default function SignIn() {
                                 Registrujte se
                             </Link>
                         </p>
-                    </CardBody>
-                </Card>
+                    </div>
+                </div>
             </div>
         </div>
     );
