@@ -48,7 +48,7 @@ export default function Home() {
   if (loading || authLoading) {
     return (
         <div className="text-center py-5">
-          <Spinner size="sm" />
+          <Spinner size="lg" />
         </div>
     );
   }
@@ -106,7 +106,7 @@ export default function Home() {
                       href={`/category/${category.id}`}
                       className="text-decoration-none"
                   >
-                    <div className="text-center p-3 bg-light rounded h-100">
+                    <div className="text-center p-3 bg-light rounded h-100 hover-card">
                       <h5 className="mb-0">{category.name}</h5>
                       <small className="text-muted">
                         {category.postCount || 0} {category.postCount === 1 ? 'post' : 'postova'}
@@ -152,4 +152,3 @@ export default function Home() {
         </section>
       </>
   );
-}

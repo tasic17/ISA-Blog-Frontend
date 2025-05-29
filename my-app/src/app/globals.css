@@ -44,6 +44,18 @@ a:hover {
   box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
 }
 
+/* Hover efekt za kategorije */
+.hover-card {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.hover-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background-color: #e9ecef !important;
+}
+
 /* Navbar prilagođavanja */
 .navbar-brand {
   font-weight: bold;
@@ -124,4 +136,23 @@ img {
   padding: 1rem;
   border-radius: 0.5rem;
   overflow-x: auto;
+}
+
+/* Admin badge styling */
+.badge.bg-danger {
+  font-size: 0.7em;
+}
+
+/* Table hover effects */
+.table-hover tbody tr:hover {
+  background-color: rgba(0,0,0,.075);
+}
+
+/* Button transitions */
+.btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
 }
