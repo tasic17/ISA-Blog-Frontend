@@ -7,34 +7,51 @@ const api = axios.create({
     baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
     },
+    withCredentials: false, // Set to false for cross-origin requests without credentials
 });
 
 // Request interceptor za dodavanje tokena
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        console.log('Making request to:', config.url, 'with data:', config.data);
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('accessToken');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
         return config;
     },
     (error) => {
+        console.error('Request error:', error);
         return Promise.reject(error);
     }
 );
 
 // Response interceptor za handle-ovanje grešaka
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        console.log('Response received:', response.status, response.data);
+        return response;
+    },
     async (error) => {
+        console.error('Response error:', error);
+        console.error('Error details:', error.response?.data || 'No response data');
+        console.error('Error status:', error.response?.status || 'No status code');
+        
         const originalRequest = error.config;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest._retry && typeof window !== 'undefined') {
             originalRequest._retry = true;
 
             try {
                 const refreshToken = localStorage.getItem('refreshToken');
+                if (!refreshToken) {
+                    throw new Error('No refresh token available');
+                }
+                
                 const response = await api.post('/auth/refresh', null, {
                     params: { refreshToken }
                 });
@@ -46,8 +63,11 @@ api.interceptors.response.use(
                 return api(originalRequest);
             } catch (refreshError) {
                 // Refresh failed, redirect to login
-                localStorage.clear();
-                window.location.href = '/auth/signin';
+                console.error('Token refresh failed:', refreshError);
+                if (typeof window !== 'undefined') {
+                    localStorage.clear();
+                    window.location.href = '/auth/signin';
+                }
                 return Promise.reject(refreshError);
             }
         }
@@ -59,7 +79,10 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
     signIn: (data) => api.post('/auth/signin', data),
-    signUp: (data) => api.post('/auth/signup', data),
+    signUp: (data) => {
+        console.log('Sending signup data:', data);
+        return api.post('/auth/signup', data);
+    },
     refresh: (refreshToken) => api.post('/auth/refresh', null, { params: { refreshToken } }),
 };
 

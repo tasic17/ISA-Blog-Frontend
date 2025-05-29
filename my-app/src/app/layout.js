@@ -1,27 +1,23 @@
-'use client';
-
-import 'bootstrap/dist/css/bootstrap.min.css';
 import './globals.css';
-import { AuthProvider } from '@/contexts/AuthContext';
-import Header from '@/components/Header/Header';
-import Footer from '@/components/Footer/Footer';
+import { Inter } from 'next/font/google';
+import ClientLayout from './ClientLayout';
+
+// Import bootstrap CSS in a way that works with Next.js
+import 'bootstrap/dist/css/bootstrap.min.css';
+
+const inter = Inter({ subsets: ['latin', 'latin-ext'] });
+
+export const metadata = {
+  title: 'Blog Platform',
+  description: 'Blog platform for ISA project',
+};
 
 export default function RootLayout({ children }) {
   return (
-      <html lang="sr">
-      <body>
-      <AuthProvider>
-        <div className="d-flex flex-column min-vh-100">
-          <Header />
-          <main className="flex-grow-1">
-            <div className="container py-4">
-              {children}
-            </div>
-          </main>
-          <Footer />
-        </div>
-      </AuthProvider>
+    <html lang="sr">
+      <body className={inter.className}>
+        <ClientLayout>{children}</ClientLayout>
       </body>
-      </html>
+    </html>
   );
-}
+} 

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
-import { useAuth } from '@/contexts/AuthContext';
 import {
     Card,
     CardBody,
@@ -14,15 +13,15 @@ import {
     Label,
     Input,
     Button,
-    Alert,
     Spinner
 } from 'reactstrap';
+import CustomAlert from '@/components/CustomAlert/CustomAlert';
 
 export default function SignIn() {
     const router = useRouter();
-    const { signIn } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(false);
 
     const {
         register,
@@ -32,17 +31,51 @@ export default function SignIn() {
 
     const onSubmit = async (data) => {
         setLoading(true);
-        setError('');
+        setError(null);
 
-        const result = await signIn(data);
-
-        if (result.success) {
-            router.push('/');
-        } else {
-            setError(result.error);
+        try {
+            console.log('Sending login data:', data);
+            
+            const response = await fetch('http://localhost:8080/auth/signin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: data.email,
+                    password: data.password
+                })
+            });
+            
+            console.log('Login response status:', response.status);
+            
+            const result = await response.json().catch(() => null);
+            console.log('Login response data:', result);
+            
+            if (!response.ok) {
+                throw new Error(result?.detail || `Error: ${response.status}`);
+            }
+            
+            // Store user data in localStorage
+            if (typeof window !== 'undefined' && result) {
+                localStorage.setItem('accessToken', result.accessToken);
+                localStorage.setItem('refreshToken', result.refreshToken);
+                localStorage.setItem('user', JSON.stringify(result.user));
+                
+                setSuccess(true);
+                
+                // Redirect after a short delay
+                setTimeout(() => {
+                    router.push('/');
+                }, 1000);
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+            setError(err.message || 'An error occurred during login. Please try again.');
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     };
 
     return (
@@ -54,7 +87,8 @@ export default function SignIn() {
                             Prijavi se
                         </CardTitle>
 
-                        {error && <Alert color="danger">{error}</Alert>}
+                        {error && <CustomAlert color="danger">{error}</CustomAlert>}
+                        {success && <CustomAlert color="success">Uspešna prijava! Preusmeravanje...</CustomAlert>}
 
                         <Form onSubmit={handleSubmit(onSubmit)}>
                             <FormGroup>
@@ -100,6 +134,7 @@ export default function SignIn() {
                                 block
                                 disabled={loading}
                                 className="mt-4"
+                                type="submit"
                             >
                                 {loading ? <Spinner size="sm" /> : 'Prijavi se'}
                             </Button>

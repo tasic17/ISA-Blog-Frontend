@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
-import { useAuth } from '@/contexts/AuthContext';
 import {
     Card,
     CardBody,
@@ -14,17 +13,17 @@ import {
     Label,
     Input,
     Button,
-    Alert,
     Spinner,
     Row,
     Col
 } from 'reactstrap';
+import CustomAlert from '@/components/CustomAlert/CustomAlert';
 
 export default function SignUp() {
     const router = useRouter();
-    const { signUp } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(false);
 
     const {
         register,
@@ -37,20 +36,56 @@ export default function SignUp() {
 
     const onSubmit = async (data) => {
         setLoading(true);
-        setError('');
-
-        // Remove confirmPassword before sending
-        const { confirmPassword, ...userData } = data;
-
-        const result = await signUp(userData);
-
-        if (result.success) {
-            router.push('/');
-        } else {
-            setError(result.error);
+        setError(null);
+        
+        try {
+            const userData = {
+                firstName: data.firstName,
+                lastName: data.lastName,
+                email: data.email,
+                contactNumber: data.contactNumber || '',
+                password: data.password
+            };
+            
+            console.log('Sending registration data:', userData);
+            
+            const response = await fetch('http://localhost:8080/auth/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(userData)
+            });
+            
+            console.log('Registration response status:', response.status);
+            
+            const result = await response.json().catch(() => null);
+            console.log('Registration response data:', result);
+            
+            if (!response.ok) {
+                throw new Error(result?.detail || `Error: ${response.status}`);
+            }
+            
+            // Store user data in localStorage
+            if (typeof window !== 'undefined' && result) {
+                localStorage.setItem('accessToken', result.accessToken);
+                localStorage.setItem('refreshToken', result.refreshToken);
+                localStorage.setItem('user', JSON.stringify(result.user));
+                
+                setSuccess(true);
+                
+                // Redirect after a short delay
+                setTimeout(() => {
+                    router.push('/');
+                }, 1000);
+            }
+        } catch (err) {
+            console.error('Registration error:', err);
+            setError(err.message || 'An error occurred during registration. Please try again.');
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     };
 
     return (
@@ -62,7 +97,8 @@ export default function SignUp() {
                             Registruj se
                         </CardTitle>
 
-                        {error && <Alert color="danger">{error}</Alert>}
+                        {error && <CustomAlert color="danger">{error}</CustomAlert>}
+                        {success && <CustomAlert color="success">Uspešna registracija! Preusmeravanje...</CustomAlert>}
 
                         <Form onSubmit={handleSubmit(onSubmit)}>
                             <Row>
@@ -205,6 +241,7 @@ export default function SignUp() {
                                 block
                                 disabled={loading}
                                 className="mt-4"
+                                type="submit"
                             >
                                 {loading ? <Spinner size="sm" /> : 'Registruj se'}
                             </Button>

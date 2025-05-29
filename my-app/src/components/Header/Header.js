@@ -31,7 +31,7 @@ export default function Header() {
                     Blog Platform
                 </NavbarBrand>
                 <NavbarToggler onClick={toggle} />
-                <Collapse isOpen={isOpen} navbar>
+                <Collapse isOpen={isOpen} navbar timeout={500}>
                     <Nav className="me-auto" navbar>
                         <NavItem>
                             <NavLink tag={Link} href="/posts">

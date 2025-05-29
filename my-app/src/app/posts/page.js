@@ -8,7 +8,6 @@ import {
     Row,
     Col,
     Spinner,
-    Alert,
     Input,
     Button,
     ButtonGroup,
@@ -16,6 +15,7 @@ import {
     PaginationItem,
     PaginationLink
 } from 'reactstrap';
+import CustomAlert from '@/components/CustomAlert/CustomAlert';
 
 export default function PostsList() {
     const [posts, setPosts] = useState([]);
@@ -167,7 +167,7 @@ export default function PostsList() {
                 </Col>
             </Row>
 
-            {error && <Alert color="danger">{error}</Alert>}
+            {error && <CustomAlert color="danger">{error}</CustomAlert>}
 
             {/* Lista postova */}
             {posts.length > 0 ? (
@@ -210,9 +210,9 @@ export default function PostsList() {
                     )}
                 </>
             ) : (
-                <Alert color="info">
+                <CustomAlert color="info">
                     {search ? 'Nema rezultata za vašu pretragu.' : 'Još uvek nema objavljenih postova.'}
-                </Alert>
+                </CustomAlert>
             )}
         </>
     );

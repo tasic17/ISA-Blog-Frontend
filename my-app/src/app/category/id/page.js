@@ -9,11 +9,11 @@ import {
     Row,
     Col,
     Spinner,
-    Alert,
     Pagination,
     PaginationItem,
     PaginationLink
 } from 'reactstrap';
+import CustomAlert from '@/components/CustomAlert/CustomAlert';
 
 export default function CategoryDetail() {
     const params = useParams();
@@ -64,7 +64,7 @@ export default function CategoryDetail() {
     }
 
     if (error) {
-        return <Alert color="danger">{error}</Alert>;
+        return <CustomAlert color="danger">{error}</CustomAlert>;
     }
 
     return (
@@ -117,9 +117,9 @@ export default function CategoryDetail() {
                     )}
                 </>
             ) : (
-                <Alert color="info">
+                <CustomAlert color="info">
                     Još uvek nema postova u ovoj kategoriji.
-                </Alert>
+                </CustomAlert>
             )}
         </>
     );
