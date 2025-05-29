@@ -34,10 +34,24 @@ export default function SignUp() {
 
     const password = watch('password');
 
+    console.log('Component rendered, form errors:', errors);
+
     const onSubmit = async (data) => {
+        console.log('=== FORM SUBMIT DEBUG ===');
+        console.log('1. onSubmit function called');
+        console.log('2. Form data received:', data);
+        console.log('3. Data keys:', Object.keys(data));
+        console.log('4. Data values:', Object.values(data));
+
+        // Provjeri da li su sva potrebna polja tu
+        if (!data.firstName) console.error('Missing firstName');
+        if (!data.lastName) console.error('Missing lastName');
+        if (!data.email) console.error('Missing email');
+        if (!data.password) console.error('Missing password');
+
         setLoading(true);
         setError(null);
-        
+
         try {
             const userData = {
                 firstName: data.firstName,
@@ -46,9 +60,10 @@ export default function SignUp() {
                 contactNumber: data.contactNumber || '',
                 password: data.password
             };
-            
-            console.log('Sending registration data:', userData);
-            
+
+            console.log('5. Prepared userData:', userData);
+            console.log('6. Sending request to backend...');
+
             const response = await fetch('http://localhost:8080/auth/signup', {
                 method: 'POST',
                 headers: {
@@ -57,34 +72,41 @@ export default function SignUp() {
                 },
                 body: JSON.stringify(userData)
             });
-            
-            console.log('Registration response status:', response.status);
-            
-            const result = await response.json().catch(() => null);
-            console.log('Registration response data:', result);
-            
+
+            console.log('7. Response status:', response.status);
+
+            const result = await response.json().catch((err) => {
+                console.error('Failed to parse JSON:', err);
+                return null;
+            });
+
+            console.log('8. Response data:', result);
+
             if (!response.ok) {
-                throw new Error(result?.detail || `Error: ${response.status}`);
+                throw new Error(result?.detail || `HTTP Error: ${response.status}`);
             }
-            
+
             // Store user data in localStorage
             if (typeof window !== 'undefined' && result) {
                 localStorage.setItem('accessToken', result.accessToken);
                 localStorage.setItem('refreshToken', result.refreshToken);
                 localStorage.setItem('user', JSON.stringify(result.user));
-                
+
                 setSuccess(true);
-                
+                console.log('9. Registration successful, redirecting...');
+
                 // Redirect after a short delay
                 setTimeout(() => {
                     router.push('/');
                 }, 1000);
             }
         } catch (err) {
-            console.error('Registration error:', err);
+            console.error('10. Registration error:', err);
+            console.error('11. Error message:', err.message);
             setError(err.message || 'An error occurred during registration. Please try again.');
         } finally {
             setLoading(false);
+            console.log('12. Loading set to false');
         }
     };
 
@@ -100,7 +122,11 @@ export default function SignUp() {
                         {error && <CustomAlert color="danger">{error}</CustomAlert>}
                         {success && <CustomAlert color="success">Uspešna registracija! Preusmeravanje...</CustomAlert>}
 
-                        <Form onSubmit={handleSubmit(onSubmit)}>
+                        <Form onSubmit={(e) => {
+                            console.log('Form onSubmit event triggered');
+                            e.preventDefault();
+                            handleSubmit(onSubmit)(e);
+                        }}>
                             <Row>
                                 <Col md={6}>
                                     <FormGroup>
@@ -108,6 +134,7 @@ export default function SignUp() {
                                         <Input
                                             type="text"
                                             id="firstName"
+                                            name="firstName"
                                             {...register('firstName', {
                                                 required: 'Ime je obavezno',
                                                 maxLength: {
@@ -116,6 +143,9 @@ export default function SignUp() {
                                                 }
                                             })}
                                             invalid={!!errors.firstName}
+                                            onChange={(e) => {
+                                                console.log('firstName changed:', e.target.value);
+                                            }}
                                         />
                                         {errors.firstName && (
                                             <div className="invalid-feedback d-block">
@@ -131,6 +161,7 @@ export default function SignUp() {
                                         <Input
                                             type="text"
                                             id="lastName"
+                                            name="lastName"
                                             {...register('lastName', {
                                                 required: 'Prezime je obavezno',
                                                 maxLength: {
@@ -154,6 +185,7 @@ export default function SignUp() {
                                 <Input
                                     type="email"
                                     id="email"
+                                    name="email"
                                     {...register('email', {
                                         required: 'Email je obavezan',
                                         pattern: {
@@ -175,6 +207,7 @@ export default function SignUp() {
                                 <Input
                                     type="text"
                                     id="contactNumber"
+                                    name="contactNumber"
                                     {...register('contactNumber', {
                                         maxLength: {
                                             value: 20,
@@ -197,6 +230,7 @@ export default function SignUp() {
                                         <Input
                                             type="password"
                                             id="password"
+                                            name="password"
                                             {...register('password', {
                                                 required: 'Lozinka je obavezna',
                                                 minLength: {
@@ -220,6 +254,7 @@ export default function SignUp() {
                                         <Input
                                             type="password"
                                             id="confirmPassword"
+                                            name="confirmPassword"
                                             {...register('confirmPassword', {
                                                 required: 'Potvrda lozinke je obavezna',
                                                 validate: value =>
@@ -242,6 +277,7 @@ export default function SignUp() {
                                 disabled={loading}
                                 className="mt-4"
                                 type="submit"
+                                onClick={() => console.log('Button clicked, loading:', loading)}
                             >
                                 {loading ? <Spinner size="sm" /> : 'Registruj se'}
                             </Button>

@@ -35,7 +35,7 @@ export default function SignIn() {
 
         try {
             console.log('Sending login data:', data);
-            
+
             const response = await fetch('http://localhost:8080/auth/signin', {
                 method: 'POST',
                 headers: {
@@ -47,24 +47,24 @@ export default function SignIn() {
                     password: data.password
                 })
             });
-            
+
             console.log('Login response status:', response.status);
-            
+
             const result = await response.json().catch(() => null);
             console.log('Login response data:', result);
-            
+
             if (!response.ok) {
                 throw new Error(result?.detail || `Error: ${response.status}`);
             }
-            
+
             // Store user data in localStorage
             if (typeof window !== 'undefined' && result) {
                 localStorage.setItem('accessToken', result.accessToken);
                 localStorage.setItem('refreshToken', result.refreshToken);
                 localStorage.setItem('user', JSON.stringify(result.user));
-                
+
                 setSuccess(true);
-                
+
                 // Redirect after a short delay
                 setTimeout(() => {
                     router.push('/');
@@ -96,6 +96,7 @@ export default function SignIn() {
                                 <Input
                                     type="email"
                                     id="email"
+                                    name="email"
                                     {...register('email', {
                                         required: 'Email je obavezan',
                                         pattern: {
@@ -117,6 +118,7 @@ export default function SignIn() {
                                 <Input
                                     type="password"
                                     id="password"
+                                    name="password"
                                     {...register('password', {
                                         required: 'Lozinka je obavezna'
                                     })}
