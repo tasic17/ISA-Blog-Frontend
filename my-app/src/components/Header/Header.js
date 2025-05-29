@@ -1,3 +1,4 @@
+// my-app/src/components/Header/Header.js - Dodavanje Admin linka
 'use client';
 
 import Link from 'next/link';
@@ -19,7 +20,7 @@ import {
 } from 'reactstrap';
 
 export default function Header() {
-    const { user, logout, isAuthor } = useAuth();
+    const { user, logout, isAuthor, isAdmin } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
 
     const toggle = () => setIsOpen(!isOpen);
@@ -43,6 +44,14 @@ export default function Header() {
                                 Kategorije
                             </NavLink>
                         </NavItem>
+                        {/* Dodajte Admin link */}
+                        {user && isAdmin() && (
+                            <NavItem>
+                                <NavLink tag={Link} href="/admin">
+                                    Admin Panel
+                                </NavLink>
+                            </NavItem>
+                        )}
                     </Nav>
 
                     <Nav navbar>
@@ -58,6 +67,12 @@ export default function Header() {
                                 <UncontrolledDropdown nav inNavbar>
                                     <DropdownToggle nav caret>
                                         {user.firstName} {user.lastName}
+                                        {/* Dodajte Admin badge */}
+                                        {isAdmin() && (
+                                            <span className="badge bg-danger ms-1" style={{fontSize: '10px'}}>
+                                                ADMIN
+                                            </span>
+                                        )}
                                     </DropdownToggle>
                                     <DropdownMenu end>
                                         {isAuthor() && (
@@ -68,6 +83,15 @@ export default function Header() {
                                         <DropdownItem tag={Link} href="/profile">
                                             Profil
                                         </DropdownItem>
+                                        {/* Admin dropdown stavka */}
+                                        {isAdmin() && (
+                                            <>
+                                                <DropdownItem divider />
+                                                <DropdownItem tag={Link} href="/admin">
+                                                    Admin Panel
+                                                </DropdownItem>
+                                            </>
+                                        )}
                                         <DropdownItem divider />
                                         <DropdownItem onClick={logout}>
                                             Odjavi se
