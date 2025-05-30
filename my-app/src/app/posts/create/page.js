@@ -47,6 +47,11 @@ export default function CreatePost() {
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+
+        // Ukloni grešku kada korisnik počne da kuca
+        if (error) {
+            setError(null);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -57,18 +62,29 @@ export default function CreatePost() {
             return;
         }
 
+        // Validacija naslova
+        if (formData.title.trim().length < 3) {
+            setError('Naslov mora imati najmanje 3 karaktera');
+            return;
+        }
+
+        if (formData.content.trim().length < 10) {
+            setError('Sadržaj mora imati najmanje 10 karaktera');
+            return;
+        }
+
         setSubmitting(true);
         setError(null);
 
         try {
             const token = localStorage.getItem('accessToken');
             const postData = {
-                title: formData.title,
-                content: formData.content,
-                excerpt: formData.excerpt || '',
-                featuredImageUrl: formData.featuredImageUrl || '',
+                title: formData.title.trim(),
+                content: formData.content.trim(),
+                excerpt: formData.excerpt.trim() || '',
+                featuredImageUrl: formData.featuredImageUrl.trim() || '',
                 categoryId: parseInt(formData.categoryId),
-                tagNames: formData.tagNames ? formData.tagNames.split(',').map(tag => tag.trim()) : [],
+                tagNames: formData.tagNames ? formData.tagNames.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0) : [],
                 publish: formData.publish
             };
 
@@ -88,7 +104,18 @@ export default function CreatePost() {
             console.log('Post creation response:', result);
 
             if (!response.ok) {
-                throw new Error(result?.detail || `HTTP Error: ${response.status}`);
+                // Proveri različite tipove grešaka
+                if (result?.detail) {
+                    throw new Error(result.detail);
+                } else if (response.status === 400) {
+                    throw new Error('Podaci nisu ispravno uneti. Molimo proverite formu i pokušajte ponovo.');
+                } else if (response.status === 401) {
+                    throw new Error('Nemate dozvolu za kreiranje postova. Molimo prijavite se ponovo.');
+                } else if (response.status === 403) {
+                    throw new Error('Nemate potrebne privilegije za kreiranje postova.');
+                } else {
+                    throw new Error(`Greška ${response.status}: ${response.statusText || 'Neočekivana greška'}`);
+                }
             }
 
             setSuccess(true);
@@ -100,7 +127,21 @@ export default function CreatePost() {
 
         } catch (err) {
             console.error('Error creating post:', err);
-            setError(err.message || 'Greška prilikom kreiranja posta');
+
+            // Specifične poruke za različite greške
+            let errorMessage = err.message;
+
+            if (errorMessage.includes('već postoji') || errorMessage.includes('Duplicate')) {
+                errorMessage = 'Već postoji post sa sličnim naslovom. Molimo promenite naslov posta.';
+            } else if (errorMessage.includes('ValidationException')) {
+                errorMessage = 'Podaci nisu ispravno uneti. Molimo proverite formu.';
+            } else if (errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+                errorMessage = 'Greška u komunikaciji sa serverom. Molimo proverite internet konekciju.';
+            } else if (!errorMessage || errorMessage === 'Failed to fetch') {
+                errorMessage = 'Neočekivana greška prilikom kreiranja posta. Molimo pokušajte ponovo.';
+            }
+
+            setError(errorMessage);
         } finally {
             setSubmitting(false);
         }
@@ -129,13 +170,21 @@ export default function CreatePost() {
                     </div>
                     <div className="card-body">
                         {error && (
-                            <div className="alert alert-danger" role="alert">
+                            <div className="alert alert-danger alert-dismissible" role="alert">
+                                <i className="fa fa-exclamation-triangle me-2"></i>
                                 {error}
+                                <button
+                                    type="button"
+                                    className="btn-close"
+                                    onClick={() => setError(null)}
+                                    aria-label="Close"
+                                ></button>
                             </div>
                         )}
 
                         {success && (
                             <div className="alert alert-success" role="alert">
+                                <i className="fa fa-check-circle me-2"></i>
                                 Post je uspešno kreiran! Preusmeravanje...
                             </div>
                         )}
@@ -147,13 +196,19 @@ export default function CreatePost() {
                                 </label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className={`form-control ${error && error.includes('naslov') ? 'is-invalid' : ''}`}
                                     id="title"
                                     name="title"
                                     value={formData.title}
                                     onChange={handleChange}
                                     required
+                                    minLength="3"
+                                    maxLength="255"
+                                    placeholder="Unesite privlačan naslov za vaš post..."
                                 />
+                                <small className="form-text text-muted">
+                                    Naslov mora biti jedinstven i imati najmanje 3 karaktera
+                                </small>
                             </div>
 
                             <div className="mb-3">
@@ -167,8 +222,12 @@ export default function CreatePost() {
                                     rows="2"
                                     value={formData.excerpt}
                                     onChange={handleChange}
-                                    placeholder="Kratki opis posta..."
+                                    maxLength="500"
+                                    placeholder="Kratki opis koji će se prikazati u pregledu posta..."
                                 />
+                                <small className="form-text text-muted">
+                                    Maksimalno 500 karaktera
+                                </small>
                             </div>
 
                             <div className="mb-3">
@@ -179,12 +238,16 @@ export default function CreatePost() {
                                     className="form-control"
                                     id="content"
                                     name="content"
-                                    rows="10"
+                                    rows="12"
                                     value={formData.content}
                                     onChange={handleChange}
                                     required
+                                    minLength="10"
                                     placeholder="Napišite sadržaj vašeg posta..."
                                 />
+                                <small className="form-text text-muted">
+                                    Minimum 10 karaktera
+                                </small>
                             </div>
 
                             <div className="row">
@@ -223,10 +286,10 @@ export default function CreatePost() {
                                             name="tagNames"
                                             value={formData.tagNames}
                                             onChange={handleChange}
-                                            placeholder="tag1, tag2, tag3"
+                                            placeholder="React, JavaScript, Tutorial"
                                         />
                                         <small className="form-text text-muted">
-                                            Odvojite tagove zarezom
+                                            Odvojite tagove zarezom (maksimalno 10 tagova)
                                         </small>
                                     </div>
                                 </div>
@@ -245,9 +308,12 @@ export default function CreatePost() {
                                     onChange={handleChange}
                                     placeholder="https://example.com/image.jpg"
                                 />
+                                <small className="form-text text-muted">
+                                    Dodajte sliku koja predstavlja vaš post
+                                </small>
                             </div>
 
-                            <div className="mb-3 form-check">
+                            <div className="mb-4 form-check">
                                 <input
                                     type="checkbox"
                                     className="form-check-input"
@@ -257,7 +323,7 @@ export default function CreatePost() {
                                     onChange={handleChange}
                                 />
                                 <label className="form-check-label" htmlFor="publish">
-                                    Objavi odmah (inače će biti sačuvan kao draft)
+                                    <strong>Objavi odmah</strong> (inače će biti sačuvan kao draft)
                                 </label>
                             </div>
 
@@ -270,7 +336,7 @@ export default function CreatePost() {
                                     {submitting ? (
                                         <>
                                             <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                            Kreiraju se...
+                                            {formData.publish ? 'Objavljivanje...' : 'Čuvanje...'}
                                         </>
                                     ) : (
                                         formData.publish ? 'Objavi Post' : 'Sačuvaj kao Draft'
