@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { adminAPI } from '@/core/api';
 import Link from 'next/link';
 import {
     Container,
@@ -56,44 +57,17 @@ export default function AdminDashboard() {
         }
     }, [activeTab]);
 
-    const makeAuthenticatedRequest = async (url, options = {}) => {
-        const token = localStorage.getItem('accessToken');
-        const response = await fetch(url, {
-            ...options,
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                ...options.headers
-            }
-        });
-
-        if (!response.ok) {
-            let errorMessage = `HTTP ${response.status}`;
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.detail || errorData.message || errorMessage;
-            } catch (e) {
-                // If response is not JSON, use status text
-                errorMessage = response.statusText || errorMessage;
-            }
-            throw new Error(errorMessage);
-        }
-
-        return response;
-    };
-
     const fetchStats = async () => {
         setLoadingStats(true);
         setError('');
         try {
             console.log('Fetching admin stats...');
-            const response = await makeAuthenticatedRequest('http://localhost:8080/api/admin/posts/stats');
-            const data = await response.json();
-            console.log('Stats data:', data);
-            setStats(data);
+            const response = await adminAPI.posts.getStats();
+            console.log('Stats data:', response.data);
+            setStats(response.data);
         } catch (err) {
             console.error('Error fetching stats:', err);
-            setError(`Greška pri učitavanju statistika: ${err.message}`);
+            setError(`Greška pri učitavanju statistika: ${err.response?.data?.detail || err.message}`);
         } finally {
             setLoadingStats(false);
         }
@@ -104,13 +78,12 @@ export default function AdminDashboard() {
         setError('');
         try {
             console.log('Fetching users...');
-            const response = await makeAuthenticatedRequest('http://localhost:8080/api/admin/users?size=10');
-            const data = await response.json();
-            console.log('Users data:', data);
-            setUsers(data.users || []);
+            const response = await adminAPI.users.getAll({ size: 10 });
+            console.log('Users data:', response.data);
+            setUsers(response.data.users || []);
         } catch (err) {
             console.error('Error fetching users:', err);
-            setError(`Greška pri učitavanju korisnika: ${err.message}`);
+            setError(`Greška pri učitavanju korisnika: ${err.response?.data?.detail || err.message}`);
         } finally {
             setLoadingUsers(false);
         }
@@ -121,13 +94,12 @@ export default function AdminDashboard() {
         setError('');
         try {
             console.log('Fetching posts...');
-            const response = await makeAuthenticatedRequest('http://localhost:8080/api/admin/posts?size=10');
-            const data = await response.json();
-            console.log('Posts data:', data);
-            setPosts(data.posts || []);
+            const response = await adminAPI.posts.getAll({ size: 10 });
+            console.log('Posts data:', response.data);
+            setPosts(response.data.posts || []);
         } catch (err) {
             console.error('Error fetching posts:', err);
-            setError(`Greška pri učitavanju postova: ${err.message}`);
+            setError(`Greška pri učitavanju postova: ${err.response?.data?.detail || err.message}`);
         } finally {
             setLoadingPosts(false);
         }
@@ -138,11 +110,11 @@ export default function AdminDashboard() {
             setError('');
             setSuccess('');
 
-            const method = action === 'add' ? 'POST' : 'DELETE';
-            await makeAuthenticatedRequest(
-                `http://localhost:8080/api/admin/users/${userId}/roles?roleName=${roleName}`,
-                { method }
-            );
+            if (action === 'add') {
+                await adminAPI.users.assignRole(userId, roleName);
+            } else {
+                await adminAPI.users.removeRole(userId, roleName);
+            }
 
             setSuccess(`Rola ${roleName} je ${action === 'add' ? 'dodana' : 'uklonjena'}`);
             fetchUsers(); // Refresh users list
@@ -150,7 +122,7 @@ export default function AdminDashboard() {
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             console.error('Error updating user role:', err);
-            setError(`Greška pri ažuriranju rola: ${err.message}`);
+            setError(`Greška pri ažuriranju rola: ${err.response?.data?.detail || err.message}`);
         }
     };
 
@@ -159,10 +131,7 @@ export default function AdminDashboard() {
             setError('');
             setSuccess('');
 
-            await makeAuthenticatedRequest(
-                `http://localhost:8080/api/admin/posts/${postId}/status?status=${newStatus}`,
-                { method: 'PUT' }
-            );
+            await adminAPI.posts.updateStatus(postId, newStatus);
 
             setSuccess(`Status posta je ažuriran na ${newStatus}`);
             fetchPosts(); // Refresh posts list
@@ -170,7 +139,7 @@ export default function AdminDashboard() {
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             console.error('Error updating post status:', err);
-            setError(`Greška pri ažuriranju statusa posta: ${err.message}`);
+            setError(`Greška pri ažuriranju statusa posta: ${err.response?.data?.detail || err.message}`);
         }
     };
 
@@ -183,9 +152,7 @@ export default function AdminDashboard() {
             setError('');
             setSuccess('');
 
-            await makeAuthenticatedRequest(`http://localhost:8080/api/admin/users/${userId}`, {
-                method: 'DELETE'
-            });
+            await adminAPI.users.delete(userId);
 
             setSuccess('Korisnik je uspešno obrisan');
             fetchUsers(); // Refresh users list
@@ -193,7 +160,7 @@ export default function AdminDashboard() {
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             console.error('Error deleting user:', err);
-            setError(`Greška pri brisanju korisnika: ${err.message}`);
+            setError(`Greška pri brisanju korisnika: ${err.response?.data?.detail || err.message}`);
         }
     };
 
@@ -206,9 +173,7 @@ export default function AdminDashboard() {
             setError('');
             setSuccess('');
 
-            await makeAuthenticatedRequest(`http://localhost:8080/api/admin/posts/${postId}`, {
-                method: 'DELETE'
-            });
+            await adminAPI.posts.delete(postId);
 
             setSuccess('Post je uspešno obrisan');
             fetchPosts(); // Refresh posts list
@@ -216,7 +181,7 @@ export default function AdminDashboard() {
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             console.error('Error deleting post:', err);
-            setError(`Greška pri brisanju posta: ${err.message}`);
+            setError(`Greška pri brisanju posta: ${err.response?.data?.detail || err.message}`);
         }
     };
 
@@ -236,6 +201,12 @@ export default function AdminDashboard() {
         <>
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h1>Admin Dashboard</h1>
+                <div>
+                    <Badge color="info" className="me-2">
+                        Ulogovan kao: {user?.firstName} {user?.lastName}
+                    </Badge>
+                    <Badge color="danger">ADMIN</Badge>
+                </div>
             </div>
 
             {error && <CustomAlert color="danger">{error}</CustomAlert>}
@@ -315,6 +286,38 @@ export default function AdminDashboard() {
                             </Card>
                         </Col>
                     </Row>
+
+                    {/* Quick Actions */}
+                    <Row className="mt-4">
+                        <Col>
+                            <Card>
+                                <CardBody>
+                                    <CardTitle>Brze akcije</CardTitle>
+                                    <div className="d-flex gap-2">
+                                        <Button
+                                            color="primary"
+                                            onClick={() => setActiveTab('users')}
+                                        >
+                                            Upravljaj korisnicima
+                                        </Button>
+                                        <Button
+                                            color="secondary"
+                                            onClick={() => setActiveTab('posts')}
+                                        >
+                                            Upravljaj postovima
+                                        </Button>
+                                        <Button
+                                            color="success"
+                                            tag={Link}
+                                            href="/posts/create"
+                                        >
+                                            Kreiraj novi post
+                                        </Button>
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        </Col>
+                    </Row>
                 </TabPane>
 
                 <TabPane tabId="users">
@@ -325,7 +328,7 @@ export default function AdminDashboard() {
                                 <div className="text-center py-3">
                                     <Spinner />
                                 </div>
-                            ) : (
+                            ) : users.length > 0 ? (
                                 <Table responsive hover>
                                     <thead>
                                     <tr>
@@ -382,6 +385,8 @@ export default function AdminDashboard() {
                                     ))}
                                     </tbody>
                                 </Table>
+                            ) : (
+                                <CustomAlert color="info">Nema korisnika za prikaz.</CustomAlert>
                             )}
                         </CardBody>
                     </Card>
@@ -395,7 +400,7 @@ export default function AdminDashboard() {
                                 <div className="text-center py-3">
                                     <Spinner />
                                 </div>
-                            ) : (
+                            ) : posts.length > 0 ? (
                                 <Table responsive hover>
                                     <thead>
                                     <tr>
@@ -463,6 +468,8 @@ export default function AdminDashboard() {
                                     ))}
                                     </tbody>
                                 </Table>
+                            ) : (
+                                <CustomAlert color="info">Nema postova za prikaz.</CustomAlert>
                             )}
                         </CardBody>
                     </Card>
