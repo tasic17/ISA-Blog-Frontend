@@ -38,54 +38,50 @@ export default function CategoriesPage() {
     fetchCategories();
   }, []);
 
-  const content = () => {
-    if (loading) {
-      return (
+  if (loading) {
+    return (
         <Container className="text-center py-5">
           <Spinner color="primary" />
           <p>Učitavanje kategorija...</p>
         </Container>
-      );
-    }
+    );
+  }
 
-    if (error) {
-      return (
+  if (error) {
+    return (
         <Container className="py-5">
           <div className="alert alert-danger">
             Greška: {error}
           </div>
         </Container>
-      );
-    }
+    );
+  }
 
-    return (
+  return (
       <Container className="py-5">
         <h1 className="mb-4">Kategorije</h1>
-        
+
         <Row>
           {categories && categories.length > 0 ? (
-            categories.map(category => (
-              <Col key={category.id} md={4} className="mb-4">
-                <Card body className="h-100">
-                  <h5>{category.name}</h5>
-                  {category.description && <p>{category.description}</p>}
-                  <Link href={`/category/${category.id}`} className="btn btn-primary mt-auto">
-                    Pregledaj
-                  </Link>
-                </Card>
-              </Col>
-            ))
+              categories.map(category => (
+                  <Col key={category.id} md={4} className="mb-4">
+                    <Card body className="h-100">
+                      <h5>{category.name}</h5>
+                      {category.description && <p>{category.description}</p>}
+                      <Link href={`/category/${category.id}`} className="btn btn-primary mt-auto">
+                        Pregledaj
+                      </Link>
+                    </Card>
+                  </Col>
+              ))
           ) : (
-            <Col>
-              <div className="alert alert-info">
-                Nema dostupnih kategorija.
-              </div>
-            </Col>
+              <Col>
+                <div className="alert alert-info">
+                  Nema dostupnih kategorija.
+                </div>
+              </Col>
           )}
         </Row>
       </Container>
-    );
-  };
-
-  return <ClientLayout>{content()}</ClientLayout>;
+  );
 }
