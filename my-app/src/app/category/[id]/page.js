@@ -1,3 +1,4 @@
+// my-app/src/app/category/[id]/page.js
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -5,7 +6,6 @@ import { useParams } from 'next/navigation';
 import { postsAPI, categoriesAPI } from '@/core/api';
 import PostCard from '@/components/PostCard/PostCard';
 import {
-    Container,
     Row,
     Col,
     Spinner,
