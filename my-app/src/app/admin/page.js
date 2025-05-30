@@ -34,6 +34,7 @@ export default function AdminDashboard() {
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [loadingPosts, setLoadingPosts] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
     useEffect(() => {
         if (!loading && (!isAuthenticated() || !isAdmin())) {
@@ -55,24 +56,44 @@ export default function AdminDashboard() {
         }
     }, [activeTab]);
 
-    const fetchStats = async () => {
-        try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch('http://localhost:8080/api/admin/posts/stats', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch stats');
+    const makeAuthenticatedRequest = async (url, options = {}) => {
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                ...options.headers
             }
+        });
 
+        if (!response.ok) {
+            let errorMessage = `HTTP ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorData.message || errorMessage;
+            } catch (e) {
+                // If response is not JSON, use status text
+                errorMessage = response.statusText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        return response;
+    };
+
+    const fetchStats = async () => {
+        setLoadingStats(true);
+        setError('');
+        try {
+            console.log('Fetching admin stats...');
+            const response = await makeAuthenticatedRequest('http://localhost:8080/api/admin/posts/stats');
             const data = await response.json();
+            console.log('Stats data:', data);
             setStats(data);
         } catch (err) {
-            setError('Greška pri učitavanju statistika');
             console.error('Error fetching stats:', err);
+            setError(`Greška pri učitavanju statistika: ${err.message}`);
         } finally {
             setLoadingStats(false);
         }
@@ -80,23 +101,16 @@ export default function AdminDashboard() {
 
     const fetchUsers = async () => {
         setLoadingUsers(true);
+        setError('');
         try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch('http://localhost:8080/api/admin/users?size=10', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch users');
-            }
-
+            console.log('Fetching users...');
+            const response = await makeAuthenticatedRequest('http://localhost:8080/api/admin/users?size=10');
             const data = await response.json();
-            setUsers(data.users);
+            console.log('Users data:', data);
+            setUsers(data.users || []);
         } catch (err) {
-            setError('Greška pri učitavanju korisnika');
             console.error('Error fetching users:', err);
+            setError(`Greška pri učitavanju korisnika: ${err.message}`);
         } finally {
             setLoadingUsers(false);
         }
@@ -104,23 +118,16 @@ export default function AdminDashboard() {
 
     const fetchPosts = async () => {
         setLoadingPosts(true);
+        setError('');
         try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch('http://localhost:8080/api/admin/posts?size=10', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch posts');
-            }
-
+            console.log('Fetching posts...');
+            const response = await makeAuthenticatedRequest('http://localhost:8080/api/admin/posts?size=10');
             const data = await response.json();
-            setPosts(data.posts);
+            console.log('Posts data:', data);
+            setPosts(data.posts || []);
         } catch (err) {
-            setError('Greška pri učitavanju postova');
             console.error('Error fetching posts:', err);
+            setError(`Greška pri učitavanju postova: ${err.message}`);
         } finally {
             setLoadingPosts(false);
         }
@@ -128,44 +135,42 @@ export default function AdminDashboard() {
 
     const handleUserRoleChange = async (userId, roleName, action) => {
         try {
-            const token = localStorage.getItem('accessToken');
+            setError('');
+            setSuccess('');
+
             const method = action === 'add' ? 'POST' : 'DELETE';
-            const response = await fetch(`http://localhost:8080/api/admin/users/${userId}/roles?roleName=${roleName}`, {
-                method,
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            await makeAuthenticatedRequest(
+                `http://localhost:8080/api/admin/users/${userId}/roles?roleName=${roleName}`,
+                { method }
+            );
 
-            if (!response.ok) {
-                throw new Error('Failed to update user role');
-            }
-
+            setSuccess(`Rola ${roleName} je ${action === 'add' ? 'dodana' : 'uklonjena'}`);
             fetchUsers(); // Refresh users list
+
+            setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
-            setError('Greška pri ažuriranju rola');
             console.error('Error updating user role:', err);
+            setError(`Greška pri ažuriranju rola: ${err.message}`);
         }
     };
 
     const handlePostStatusChange = async (postId, newStatus) => {
         try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch(`http://localhost:8080/api/admin/posts/${postId}/status?status=${newStatus}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            setError('');
+            setSuccess('');
 
-            if (!response.ok) {
-                throw new Error('Failed to update post status');
-            }
+            await makeAuthenticatedRequest(
+                `http://localhost:8080/api/admin/posts/${postId}/status?status=${newStatus}`,
+                { method: 'PUT' }
+            );
 
+            setSuccess(`Status posta je ažuriran na ${newStatus}`);
             fetchPosts(); // Refresh posts list
+
+            setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
-            setError('Greška pri ažuriranju statusa posta');
             console.error('Error updating post status:', err);
+            setError(`Greška pri ažuriranju statusa posta: ${err.message}`);
         }
     };
 
@@ -175,22 +180,20 @@ export default function AdminDashboard() {
         }
 
         try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch(`http://localhost:8080/api/admin/users/${userId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+            setError('');
+            setSuccess('');
+
+            await makeAuthenticatedRequest(`http://localhost:8080/api/admin/users/${userId}`, {
+                method: 'DELETE'
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to delete user');
-            }
-
+            setSuccess('Korisnik je uspešno obrisan');
             fetchUsers(); // Refresh users list
+
+            setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
-            setError('Greška pri brisanju korisnika');
             console.error('Error deleting user:', err);
+            setError(`Greška pri brisanju korisnika: ${err.message}`);
         }
     };
 
@@ -200,22 +203,20 @@ export default function AdminDashboard() {
         }
 
         try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch(`http://localhost:8080/api/admin/posts/${postId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+            setError('');
+            setSuccess('');
+
+            await makeAuthenticatedRequest(`http://localhost:8080/api/admin/posts/${postId}`, {
+                method: 'DELETE'
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to delete post');
-            }
-
+            setSuccess('Post je uspešno obrisan');
             fetchPosts(); // Refresh posts list
+
+            setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
-            setError('Greška pri brisanju posta');
             console.error('Error deleting post:', err);
+            setError(`Greška pri brisanju posta: ${err.message}`);
         }
     };
 
@@ -238,6 +239,7 @@ export default function AdminDashboard() {
             </div>
 
             {error && <CustomAlert color="danger">{error}</CustomAlert>}
+            {success && <CustomAlert color="success">{success}</CustomAlert>}
 
             <Nav tabs className="mb-4">
                 <NavItem>
@@ -324,7 +326,7 @@ export default function AdminDashboard() {
                                     <Spinner />
                                 </div>
                             ) : (
-                                <Table responsive>
+                                <Table responsive hover>
                                     <thead>
                                     <tr>
                                         <th>Ime</th>
@@ -394,7 +396,7 @@ export default function AdminDashboard() {
                                     <Spinner />
                                 </div>
                             ) : (
-                                <Table responsive>
+                                <Table responsive hover>
                                     <thead>
                                     <tr>
                                         <th>Naslov</th>
@@ -409,9 +411,13 @@ export default function AdminDashboard() {
                                     {posts.map(post => (
                                         <tr key={post.id}>
                                             <td>
-                                                <Link href={`/posts/${post.slug}`} className="text-decoration-none">
-                                                    {post.title}
-                                                </Link>
+                                                {post.status === 'PUBLISHED' && post.slug ? (
+                                                    <Link href={`/posts/${post.slug}`} className="text-decoration-none">
+                                                        {post.title}
+                                                    </Link>
+                                                ) : (
+                                                    post.title
+                                                )}
                                             </td>
                                             <td>{post.authorName}</td>
                                             <td>
@@ -463,4 +469,5 @@ export default function AdminDashboard() {
                 </TabPane>
             </TabContent>
         </>
-    );}
+    );
+}
